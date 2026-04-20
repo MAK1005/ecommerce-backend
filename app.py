@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+import os
+load_dotenv()
 import bcrypt
 from datetime import datetime
 from flask import Flask, request
@@ -16,7 +19,8 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:1234@localhost/ecommerce'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-app.config['JWT_SECRET_KEY'] = 'your-secret-key-123'
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY') or 'fallback-secret'
 jwt = JWTManager(app)
 
 # initialize db
@@ -164,7 +168,7 @@ def add_product():
     data = request.get_json()
 
     user_id = int(get_jwt_identity())
-    user = Users.query.get(user_id)
+    db.session.get(Users, id)
 
     if not data:
         return {"error": "No data provided"}, 400
@@ -393,6 +397,39 @@ def search_products():
         })
 
     return {"products": result}
+
+@app.route('/my-orders', methods=['GET'])
+@jwt_required()
+def my_orders():
+    user_id = int(get_jwt_identity())
+
+    orders = Orders.query.filter_by(user_id=user_id).all()
+
+    result = []
+
+    for order in orders:
+        items = OrderItems.query.filter_by(order_id=order.id).all()
+        order_products = []
+
+        for item in items:
+            product = Products.query.get(item.product_id)
+            if product:
+                order_products.append({
+                    "product_id": product.id,
+                    "name": product.name,
+                    "price": product.price,
+                    "quantity": item.quantity
+                })
+
+        result.append({
+            "order_id": order.id,
+            "total_price": order.total_price,
+            "status": order.status,
+            "created_at": str(order.created_at),
+            "items": order_products
+        })
+
+    return {"orders": result}
 
 if __name__ == '__main__':
     app.run(debug=True)
