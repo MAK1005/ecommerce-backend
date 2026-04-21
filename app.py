@@ -168,7 +168,7 @@ def add_product():
     data = request.get_json()
 
     user_id = int(get_jwt_identity())
-    db.session.get(Users, id)
+    user = db.session.get(Users, user_id)
 
     if not data:
         return {"error": "No data provided"}, 400
@@ -430,6 +430,87 @@ def my_orders():
         })
 
     return {"orders": result}
+
+@app.route('/update-product/<int:product_id>', methods=['PUT'])
+@jwt_required()
+def update_product(product_id):
+    data = request.get_json()
+
+    if not data:
+        return {"error": "No data provided"}, 400
+
+    user_id = int(get_jwt_identity())
+    user = Users.query.get(user_id)
+
+    if not user:
+        return {"error": "User not found"}, 404
+
+    if user.role != 'admin':
+        return {"error": "Only admin can update products"}, 403
+
+    product = Products.query.get(product_id)
+
+    if not product:
+        return {"error": "Product not found"}, 404
+
+    if 'name' in data:
+        product.name = data['name']
+
+    if 'description' in data:
+        product.description = data['description']
+
+    if 'price' in data:
+        product.price = data['price']
+
+    if 'stock' in data:
+        product.stock = data['stock']
+
+    db.session.commit()
+
+    return {
+        "message": "Product updated successfully",
+        "product": {
+            "id": product.id,
+            "name": product.name,
+            "description": product.description,
+            "price": product.price,
+            "stock": product.stock
+        }
+    }
+
+@app.route('/delete-product/<int:product_id>', methods=['DELETE'])
+@jwt_required()
+def delete_product(product_id):
+    user_id = int(get_jwt_identity())
+    user = Users.query.get(user_id)
+
+    if not user:
+        return {"error": "User not found"}, 404
+
+    if user.role != 'admin':
+        return {"error": "Only admin can delete products"}, 403
+
+    product = Products.query.get(product_id)
+
+    if not product:
+        return {"error": "Product not found"}, 404
+
+    existing_order_item = OrderItems.query.filter_by(product_id=product_id).first()
+    if existing_order_item:
+        return {
+            "error": "This product cannot be deleted because it is linked to previous orders"
+        }, 400
+
+    existing_cart_item = CartItems.query.filter_by(product_id=product_id).first()
+    if existing_cart_item:
+        return {
+            "error": "This product cannot be deleted because it is still in a cart"
+        }, 400
+
+    db.session.delete(product)
+    db.session.commit()
+
+    return {"message": "Product deleted successfully"}
 
 if __name__ == '__main__':
     app.run(debug=True)
