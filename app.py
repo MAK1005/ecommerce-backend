@@ -403,31 +403,35 @@ def search_products():
 def my_orders():
     user_id = int(get_jwt_identity())
 
-    orders = Orders.query.filter_by(user_id=user_id).all()
+    orders = db.session.query(Orders).filter_by(user_id=user_id).all()
+
+    if not orders:
+        return {"message": "No orders found", "orders": []}
 
     result = []
 
     for order in orders:
-        items = OrderItems.query.filter_by(order_id=order.id).all()
-        order_products = []
+        items = db.session.query(OrderItems).filter_by(order_id=order.id).all()
+
+        order_data = {
+            "order_id": order.id,
+            "total_price": order.total_price,
+            "status": order.status,
+            "created_at": str(order.created_at),
+            "items": []
+        }
 
         for item in items:
-            product = Products.query.get(item.product_id)
+            product = db.session.get(Products, item.product_id)
             if product:
-                order_products.append({
+                order_data["items"].append({
                     "product_id": product.id,
                     "name": product.name,
                     "price": product.price,
                     "quantity": item.quantity
                 })
 
-        result.append({
-            "order_id": order.id,
-            "total_price": order.total_price,
-            "status": order.status,
-            "created_at": str(order.created_at),
-            "items": order_products
-        })
+        result.append(order_data)
 
     return {"orders": result}
 
