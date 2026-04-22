@@ -516,5 +516,36 @@ def delete_product(product_id):
 
     return {"message": "Product deleted successfully"}
 
+@app.route('/cancel-order/<int:order_id>', methods=['PUT'])
+@jwt_required()
+def cancel_order(order_id):
+    user_id = int(get_jwt_identity())
+    order = db.session.get(Orders, order_id)
+
+    if not order:
+        return {"error": "Order not found"}, 404
+
+    if order.user_id != user_id:
+        return {"error": "You can only cancel your own orders"}, 403
+
+    if order.status != 'placed':
+        return {"error": "Only placed orders can be cancelled"}, 400
+
+    items = db.session.query(OrderItems).filter_by(order_id=order.id).all()
+
+    for item in items:
+        product = db.session.get(Products, item.product_id)
+        if product:
+            product.stock += item.quantity
+
+    order.status = 'cancelled'
+    db.session.commit()
+
+    return {
+        "message": "Order cancelled successfully",
+        "order_id": order.id,
+        "new_status": order.status
+    }
+
 if __name__ == '__main__':
     app.run(debug=True)
