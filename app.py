@@ -547,5 +547,42 @@ def cancel_order(order_id):
         "new_status": order.status
     }
 
+@app.route('/update-order-status/<int:order_id>', methods=['PUT'])
+@jwt_required()
+def update_order_status(order_id):
+    data = request.get_json()
+
+    if not data or not data.get('status'):
+        return {"error": "Status is required"}, 400
+
+    user_id = int(get_jwt_identity())
+    user = db.session.get(Users, user_id)
+
+    if not user:
+        return {"error": "User not found"}, 404
+
+    if user.role != 'admin':
+        return {"error": "Only admin can update order status"}, 403
+
+    order = db.session.get(Orders, order_id)
+
+    if not order:
+        return {"error": "Order not found"}, 404
+
+    allowed_statuses = ['placed', 'shipped', 'delivered', 'cancelled']
+    new_status = data['status']
+
+    if new_status not in allowed_statuses:
+        return {"error": "Invalid order status"}, 400
+
+    order.status = new_status
+    db.session.commit()
+
+    return {
+        "message": "Order status updated successfully",
+        "order_id": order.id,
+        "new_status": order.status
+    }
+
 if __name__ == '__main__':
     app.run(debug=True)
