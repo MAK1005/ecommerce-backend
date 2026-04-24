@@ -625,5 +625,28 @@ def get_all_orders():
 
     return {"orders": result}
 
+@app.route('/remove-from-cart/<int:product_id>', methods=['DELETE'])
+@jwt_required()
+def remove_from_cart(product_id):
+    user_id = int(get_jwt_identity())
+
+    cart = db.session.query(Cart).filter_by(user_id=user_id).first()
+
+    if not cart:
+        return {"error": "Cart not found"}, 404
+
+    cart_item = db.session.query(CartItems).filter_by(
+        cart_id=cart.id,
+        product_id=product_id
+    ).first()
+
+    if not cart_item:
+        return {"error": "Product not found in cart"}, 404
+
+    db.session.delete(cart_item)
+    db.session.commit()
+
+    return {"message": "Product removed from cart successfully"}
+
 if __name__ == '__main__':
     app.run(debug=True)
