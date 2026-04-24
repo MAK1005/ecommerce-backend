@@ -648,5 +648,27 @@ def remove_from_cart(product_id):
 
     return {"message": "Product removed from cart successfully"}
 
+@app.route('/clear-cart', methods=['DELETE'])
+@jwt_required()
+def clear_cart():
+    user_id = int(get_jwt_identity())
+
+    cart = db.session.query(Cart).filter_by(user_id=user_id).first()
+
+    if not cart:
+        return {"error": "Cart not found"}, 404
+
+    cart_items = db.session.query(CartItems).filter_by(cart_id=cart.id).all()
+
+    if not cart_items:
+        return {"message": "Cart is already empty"}
+
+    for item in cart_items:
+        db.session.delete(item)
+
+    db.session.commit()
+
+    return {"message": "Cart cleared successfully"}
+
 if __name__ == '__main__':
     app.run(debug=True)
