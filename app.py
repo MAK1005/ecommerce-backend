@@ -584,5 +584,46 @@ def update_order_status(order_id):
         "new_status": order.status
     }
 
+@app.route('/all-orders', methods=['GET'])
+@jwt_required()
+def get_all_orders():
+    user_id = int(get_jwt_identity())
+    user = db.session.get(Users, user_id)
+
+    if not user:
+        return {"error": "User not found"}, 404
+
+    if user.role != 'admin':
+        return {"error": "Only admin can view all orders"}, 403
+
+    orders = db.session.query(Orders).all()
+    result = []
+
+    for order in orders:
+        items = db.session.query(OrderItems).filter_by(order_id=order.id).all()
+        order_items = []
+
+        for item in items:
+            product = db.session.get(Products, item.product_id)
+
+            if product:
+                order_items.append({
+                    "product_id": product.id,
+                    "name": product.name,
+                    "price": product.price,
+                    "quantity": item.quantity
+                })
+
+        result.append({
+            "order_id": order.id,
+            "user_id": order.user_id,
+            "total_price": order.total_price,
+            "status": order.status,
+            "created_at": str(order.created_at),
+            "items": order_items
+        })
+
+    return {"orders": result}
+
 if __name__ == '__main__':
     app.run(debug=True)
